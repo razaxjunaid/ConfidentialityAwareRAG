@@ -7,6 +7,9 @@ def authenticate_and_answer(username, password, query, top_k=4):
     """
     Authenticate the user, perform confidentiality-aware retrieval,
     enforce RBAC, and generate an answer only from authorized documents.
+
+    If the LLM is unavailable, return authorized retrieved information
+    as a fallback.
     """
 
     # Step 1: Authenticate user
@@ -37,7 +40,6 @@ def authenticate_and_answer(username, password, query, top_k=4):
 
     # Step 4: Handle access denial
     if access_denied:
-
         return {
             "success": True,
             "message": "Access denied.",
@@ -52,7 +54,6 @@ def authenticate_and_answer(username, password, query, top_k=4):
 
     # Step 5: No relevant authorized information
     if not results:
-
         return {
             "success": True,
             "message": "No authorized information found.",
@@ -66,10 +67,26 @@ def authenticate_and_answer(username, password, query, top_k=4):
         }
 
     # Step 6: Generate answer using ONLY authorized documents
-    answer = generate_answer(
-        query=query,
-        retrieved_results=results
-    )
+    try:
+        answer = generate_answer(
+            query=query,
+            retrieved_results=results
+        )
+
+    except Exception as e:
+        print(f"LLM generation failed: {e}")
+
+        # Fallback: show authorized retrieved information
+        answer_parts = [
+            "The following information was found in documents you are authorized to access:\n"
+        ]
+
+        for i, result in enumerate(results, start=1):
+            answer_parts.append(
+                f"\n{i}. {result['text']}"
+            )
+
+        answer = "\n".join(answer_parts)
 
     return {
         "success": True,
@@ -125,13 +142,11 @@ if __name__ == "__main__":
 
     else:
         for i, result in enumerate(results, start=1):
-
             print("=" * 60)
             print(f"Rank           : {i}")
             print(f"File           : {result['filename']}")
             print(f"Classification : {result['classification']}")
             print(f"Distance       : {result['distance']:.4f}")
-
             print("\nContent:")
             print(result["text"])
             print()
