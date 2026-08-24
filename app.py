@@ -4,29 +4,62 @@ import streamlit as st
 # Page Configuration
 # Must come before other Streamlit commands
 # -----------------------------------------------------
-
 st.set_page_config(
     page_title="Confidentiality-Aware RAG",
     page_icon="🔐",
     layout="wide"
 )
 
+# -----------------------------------------------------
+# Imports
+# -----------------------------------------------------
 from database.init_db import initialize_database
 from services.secure_rag_service import authenticate_and_answer
 
-# Optional: ChromaDB debugging
-from vectorstore.chroma_store import collection_info, debug_collection
+from vectorstore.chroma_store import (
+    collection,
+    collection_info,
+    debug_collection
+)
+
+from ingestion.bulk_ingestion import ingest_all_documents
 
 
 # -----------------------------------------------------
-# Initialize Database and Check ChromaDB
+# Initialize Database and ChromaDB
 # -----------------------------------------------------
-
 @st.cache_resource
 def setup_database():
+    """
+    Initialize SQLite database and ensure that
+    ChromaDB contains the application documents.
+    """
 
+    # Initialize SQLite database and default users
     initialize_database()
 
+    print("\n========== DATABASE INITIALIZATION ==========\n")
+
+    # Check whether ChromaDB is empty
+    document_count = collection.count()
+
+    print(f"Current ChromaDB document count: {document_count}")
+
+    # If running for the first time on Streamlit Cloud,
+    # ingest all documents automatically
+    if document_count == 0:
+        print("\n⚠️ ChromaDB is empty.")
+        print("Starting document ingestion...\n")
+
+        ingest_all_documents()
+
+        print("\n✅ Document ingestion completed.\n")
+
+    else:
+        print("\n✅ ChromaDB already contains documents.")
+        print("Skipping document ingestion.\n")
+
+    # Debug information
     print("\n========== CHROMADB CHECK ==========\n")
 
     collection_info()
@@ -35,13 +68,13 @@ def setup_database():
     print("\n====================================\n")
 
 
+# Run initialization
 setup_database()
 
 
 # -----------------------------------------------------
 # Title
 # -----------------------------------------------------
-
 st.title("🔐 Confidentiality-Aware RAG System")
 
 st.markdown(
@@ -58,7 +91,6 @@ st.divider()
 # -----------------------------------------------------
 # Sidebar - Login
 # -----------------------------------------------------
-
 with st.sidebar:
 
     st.header("🔑 User Authentication")
@@ -89,12 +121,11 @@ executive / executive123"""
 # -----------------------------------------------------
 # Main Question Area
 # -----------------------------------------------------
-
 st.subheader("💬 Ask a Question")
 
 query = st.text_area(
     "Enter your question",
-    placeholder="Example: What are the company's strategic plans?",
+    placeholder="Example: What services does the company provide?",
     height=120
 )
 
@@ -102,7 +133,6 @@ query = st.text_area(
 # -----------------------------------------------------
 # Ask Button
 # -----------------------------------------------------
-
 if st.button(
     "🔍 Ask Secure RAG",
     use_container_width=True
@@ -111,7 +141,6 @@ if st.button(
     # -------------------------------------------------
     # Validate Inputs
     # -------------------------------------------------
-
     if not username or not password:
 
         st.warning(
@@ -129,7 +158,6 @@ if st.button(
         # -------------------------------------------------
         # Secure RAG Processing
         # -------------------------------------------------
-
         with st.spinner(
             "Authenticating user and retrieving authorized information..."
         ):
@@ -144,7 +172,6 @@ if st.button(
         # -------------------------------------------------
         # Authentication Failure
         # -------------------------------------------------
-
         if not response["success"]:
 
             st.error("❌ Authentication failed.")
@@ -156,20 +183,17 @@ if st.button(
             # -------------------------------------------------
             # User Information
             # -------------------------------------------------
-
             st.success("✅ Login Successful!")
 
             col1, col2 = st.columns(2)
 
             with col1:
-
                 st.metric(
                     "Username",
                     user["username"]
                 )
 
             with col2:
-
                 st.metric(
                     "Role",
                     user["role"].upper()
@@ -180,13 +204,12 @@ if st.button(
             # -------------------------------------------------
             # Secure Answer
             # -------------------------------------------------
-
             st.subheader("🤖 Secure Answer")
 
             if response.get("access_denied", False):
 
                 st.error(
-                    response["answer"]
+                    f"🔒 {response['answer']}"
                 )
 
             else:
@@ -200,13 +223,12 @@ if st.button(
             # -------------------------------------------------
             # Authorized Sources
             # -------------------------------------------------
-
             st.subheader("📚 Authorized Sources")
 
-            results = response["results"]
+            results = response.get("results", [])
 
-            # Case 1: Relevant information exists,
-            # but the user is not authorized
+            # Case 1:
+            # Relevant information exists but is restricted
             if response.get("access_denied", False):
 
                 st.error(
@@ -214,7 +236,8 @@ if st.button(
                     "is not authorized for your current role."
                 )
 
-            # Case 2: No relevant authorized information exists
+            # Case 2:
+            # No authorized relevant information exists
             elif not results:
 
                 st.warning(
@@ -222,7 +245,8 @@ if st.button(
                     "you are authorized to access."
                 )
 
-            # Case 3: Authorized documents found
+            # Case 3:
+            # Authorized relevant documents found
             else:
 
                 for i, result in enumerate(
@@ -256,7 +280,6 @@ if st.button(
 # -----------------------------------------------------
 # Footer
 # -----------------------------------------------------
-
 st.divider()
 
 st.caption(
