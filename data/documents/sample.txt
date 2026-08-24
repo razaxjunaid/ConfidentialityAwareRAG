@@ -1,0 +1,5 @@
+This is a public company document.
+
+Employees should maintain confidentiality.
+
+All passwords must be secure.

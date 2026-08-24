@@ -1,0 +1,5 @@
+This is an internal company document.
+
+The engineering team is working on the new enterprise platform.
+
+Internal project information should only be accessed by authorized employees.
