@@ -38,7 +38,7 @@ def retrieve_with_access_status(query, user_role, top_k=4):
     distances = results["distances"][0]
 
     authorized_results = []
-    unauthorized_distances = []
+    unauthorized_found = False
 
     # Step 4: Apply RBAC
     for document, metadata, distance in zip(
@@ -67,29 +67,16 @@ def retrieve_with_access_status(query, user_role, top_k=4):
 
         # User does NOT have permission
         else:
-            # Only store distance internally.
-            # NEVER return document text or metadata to the user/LLM.
-            unauthorized_distances.append(float(distance))
+            # Never return restricted document content
+            # or metadata to the user or LLM
+            unauthorized_found = True
 
-    # Step 5: Detect whether the best matching result was restricted
-    access_denied = False
-
-    if unauthorized_distances:
-
-        best_unauthorized_distance = min(unauthorized_distances)
-
-        if not authorized_results:
-            access_denied = True
-
-        else:
-            best_authorized_distance = min(
-                result["distance"]
-                for result in authorized_results
-            )
-
-            # Smaller distance = more relevant
-            if best_unauthorized_distance < best_authorized_distance:
-                access_denied = True
+    # Step 5: Access is denied only when relevant results
+    # exist but NONE are accessible to the current user.
+    access_denied = (
+        unauthorized_found
+        and not authorized_results
+    )
 
     return {
         "authorized_results": authorized_results,
