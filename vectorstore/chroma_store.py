@@ -163,3 +163,23 @@ if __name__ == "__main__":
     # clear_collection()
 
     collection_info()
+
+
+def debug_collection():
+    """
+    Print all documents and metadata stored in ChromaDB.
+    """
+    results = collection.get(
+        include=["documents", "metadatas"]
+    )
+
+    print("\n========== STORED DOCUMENTS ==========\n")
+
+    for i, (document, metadata) in enumerate(
+        zip(results["documents"], results["metadatas"]),
+        start=1
+    ):
+        print(f"Document {i}")
+        print("Metadata:", metadata)
+        print("Text:", document[:200])
+        print("-" * 50)

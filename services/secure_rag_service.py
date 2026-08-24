@@ -1,12 +1,12 @@
 from auth.login import login
-from retrieval.retriever import retrieve
+from retrieval.retriever import retrieve_with_access_status
 from llm.generator import generate_answer
 
 
 def authenticate_and_answer(username, password, query, top_k=4):
     """
-    Authenticate the user, retrieve only authorized documents,
-    and generate an answer using the authorized context.
+    Authenticate the user, perform confidentiality-aware retrieval,
+    enforce RBAC, and generate an answer only from authorized documents.
     """
 
     # Step 1: Authenticate user
@@ -18,20 +18,54 @@ def authenticate_and_answer(username, password, query, top_k=4):
             "message": "Authentication failed.",
             "user": None,
             "results": [],
-            "answer": None
+            "answer": None,
+            "access_denied": False
         }
 
     # Step 2: Get user's role
     user_role = user["role"]
 
-    # Step 3: Retrieve only documents authorized for this role
-    results = retrieve(
+    # Step 3: Retrieve documents and check access status
+    retrieval_response = retrieve_with_access_status(
         query=query,
         user_role=user_role,
         top_k=top_k
     )
 
-    # Step 4: Generate answer using only authorized documents
+    results = retrieval_response["authorized_results"]
+    access_denied = retrieval_response["access_denied"]
+
+    # Step 4: Handle access denial
+    if access_denied:
+
+        return {
+            "success": True,
+            "message": "Access denied.",
+            "user": user,
+            "results": [],
+            "answer": (
+                "🔒 Access Denied: You are not authorized to access "
+                "information relevant to this request."
+            ),
+            "access_denied": True
+        }
+
+    # Step 5: No relevant authorized information
+    if not results:
+
+        return {
+            "success": True,
+            "message": "No authorized information found.",
+            "user": user,
+            "results": [],
+            "answer": (
+                "No relevant information was found in the documents "
+                "you are authorized to access."
+            ),
+            "access_denied": False
+        }
+
+    # Step 6: Generate answer using ONLY authorized documents
     answer = generate_answer(
         query=query,
         retrieved_results=results
@@ -42,7 +76,8 @@ def authenticate_and_answer(username, password, query, top_k=4):
         "message": "Secure RAG completed successfully.",
         "user": user,
         "results": results,
-        "answer": answer
+        "answer": answer,
+        "access_denied": False
     }
 
 
@@ -86,10 +121,11 @@ if __name__ == "__main__":
     results = response["results"]
 
     if not results:
-        print("No authorized information found.")
+        print("No authorized sources are displayed.")
 
     else:
         for i, result in enumerate(results, start=1):
+
             print("=" * 60)
             print(f"Rank           : {i}")
             print(f"File           : {result['filename']}")
