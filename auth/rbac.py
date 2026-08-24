@@ -19,6 +19,7 @@ def get_clearance(role: str):
 
 
 def can_access(user_role: str, document_classification: str):
+
     user_clearance = get_clearance(user_role)
 
     document_level = CLASSIFICATION_LEVEL.get(
