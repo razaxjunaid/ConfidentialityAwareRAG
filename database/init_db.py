@@ -2,20 +2,16 @@ import sqlite3
 from pathlib import Path
 
 DB_PATH = Path("data/database.db")
-
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+
 def get_connection():
-    """
-    Create and return a SQLite database connection.
-    """
+    """Create and return a SQLite database connection."""
     return sqlite3.connect(str(DB_PATH))
 
-def create_users_table(cursor):
-    """
-    Create the users table.
-    """
 
+def create_users_table(cursor):
+    """Create the users table."""
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,11 +22,9 @@ def create_users_table(cursor):
     );
     """)
 
-def create_documents_table(cursor):
-    """
-    Create the documents table.
-    """
 
+def create_documents_table(cursor):
+    """Create the documents table."""
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS documents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,11 +35,9 @@ def create_documents_table(cursor):
     );
     """)
 
-def create_tables():
-    """
-    Create all required database tables.
-    """
 
+def create_tables():
+    """Create all required database tables."""
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -55,7 +47,15 @@ def create_tables():
     conn.commit()
     conn.close()
 
-    print("All tables created successfully!")
+
+def initialize_database():
+    """Create tables and seed default users."""
+    create_tables()
+
+    from database.db import seed_users
+    seed_users()
+
 
 if __name__ == "__main__":
-    create_tables()
+    initialize_database()
+    print("Database initialized successfully!")

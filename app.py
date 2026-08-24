@@ -1,23 +1,33 @@
 import streamlit as st
 
-from services.secure_rag_service import authenticate_and_answer
-
-
 # -----------------------------------------------------
 # Page Configuration
+# Must come before other Streamlit commands
 # -----------------------------------------------------
-
 st.set_page_config(
     page_title="Confidentiality-Aware RAG",
     page_icon="🔐",
     layout="wide"
 )
 
+from database.init_db import initialize_database
+from services.secure_rag_service import authenticate_and_answer
+
+
+# -----------------------------------------------------
+# Initialize Database
+# -----------------------------------------------------
+@st.cache_resource
+def setup_database():
+    initialize_database()
+
+
+setup_database()
+
 
 # -----------------------------------------------------
 # Title
 # -----------------------------------------------------
-
 st.title("🔐 Confidentiality-Aware RAG System")
 
 st.markdown(
@@ -34,9 +44,7 @@ st.divider()
 # -----------------------------------------------------
 # Sidebar - Login
 # -----------------------------------------------------
-
 with st.sidebar:
-
     st.header("🔑 User Authentication")
 
     username = st.text_input(
@@ -51,7 +59,6 @@ with st.sidebar:
     )
 
     st.markdown("---")
-
     st.markdown("### Demo Users")
 
     st.code(
@@ -65,7 +72,6 @@ executive / executive123"""
 # -----------------------------------------------------
 # Main Question Area
 # -----------------------------------------------------
-
 st.subheader("💬 Ask a Question")
 
 query = st.text_area(
@@ -78,27 +84,22 @@ query = st.text_area(
 # -----------------------------------------------------
 # Ask Button
 # -----------------------------------------------------
-
 if st.button("🔍 Ask Secure RAG", use_container_width=True):
 
     if not username or not password:
-
         st.warning(
             "Please enter both username and password."
         )
 
     elif not query:
-
         st.warning(
             "Please enter a question."
         )
 
     else:
-
         with st.spinner(
             "Authenticating user and retrieving authorized information..."
         ):
-
             response = authenticate_and_answer(
                 username=username,
                 password=password,
@@ -106,23 +107,18 @@ if st.button("🔍 Ask Secure RAG", use_container_width=True):
                 top_k=4
             )
 
-
         # -------------------------------------------------
         # Authentication Failure
         # -------------------------------------------------
-
         if not response["success"]:
-
             st.error("❌ Authentication failed.")
 
         else:
-
             user = response["user"]
 
             # -------------------------------------------------
             # User Information
             # -------------------------------------------------
-
             st.success("✅ Login Successful!")
 
             col1, col2 = st.columns(2)
@@ -139,43 +135,33 @@ if st.button("🔍 Ask Secure RAG", use_container_width=True):
                     user["role"].upper()
                 )
 
-
             st.divider()
-
 
             # -------------------------------------------------
             # Final Answer
             # -------------------------------------------------
-
             st.subheader("🤖 Secure Answer")
-
             st.write(response["answer"])
 
-
             st.divider()
-
 
             # -------------------------------------------------
             # Authorized Sources
             # -------------------------------------------------
-
             st.subheader("📚 Authorized Sources")
 
             results = response["results"]
 
             if not results:
-
                 st.warning(
                     "No authorized information was found."
                 )
 
             else:
-
                 for i, result in enumerate(
                     results,
                     start=1
                 ):
-
                     with st.expander(
                         f"Source {i} — "
                         f"{result['filename']} "
@@ -193,14 +179,12 @@ if st.button("🔍 Ask Secure RAG", use_container_width=True):
                         )
 
                         st.markdown("**Content:**")
-
                         st.write(result["text"])
 
 
 # -----------------------------------------------------
 # Footer
 # -----------------------------------------------------
-
 st.divider()
 
 st.caption(
