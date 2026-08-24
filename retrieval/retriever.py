@@ -5,12 +5,15 @@ from auth.rbac import can_access
 
 def retrieve_with_access_status(query, user_role, top_k=4):
     """
-    Retrieve relevant documents and separate them into:
+    Retrieve relevant documents and apply RBAC.
 
-    1. Authorized documents
-    2. Unauthorized documents
+    Returns:
+    - authorized_results: Documents the user is allowed to access
+    - access_denied: True when a restricted document is clearly
+      more relevant to the query than accessible documents
 
-    Unauthorized document content is NEVER returned to the LLM.
+    Restricted document content and metadata are NEVER returned
+    to the user or the LLM.
     """
 
     # Step 1: Generate query embedding
@@ -38,7 +41,7 @@ def retrieve_with_access_status(query, user_role, top_k=4):
     distances = results["distances"][0]
 
     authorized_results = []
-    unauthorized_found = False
+    unauthorized_distances = []
 
     # Step 4: Apply RBAC
     for document, metadata, distance in zip(
@@ -52,7 +55,9 @@ def retrieve_with_access_status(query, user_role, top_k=4):
             "public"
         )
 
-        # User has permission
+        distance = float(distance)
+
+        # User is authorized
         if can_access(user_role, classification):
 
             authorized_results.append({
@@ -62,21 +67,49 @@ def retrieve_with_access_status(query, user_role, top_k=4):
                     "Unknown"
                 ),
                 "classification": classification,
-                "distance": float(distance)
+                "distance": distance
             })
 
-        # User does NOT have permission
+        # User is NOT authorized
         else:
-            # Never return restricted document content
-            # or metadata to the user or LLM
-            unauthorized_found = True
+            # Store only the similarity distance.
+            # Never expose restricted text or metadata.
+            unauthorized_distances.append(distance)
 
-    # Step 5: Access is denied only when relevant results
-    # exist but NONE are accessible to the current user.
-    access_denied = (
-        unauthorized_found
-        and not authorized_results
-    )
+    # Step 5: Determine access status
+    access_denied = False
+
+    if unauthorized_distances:
+
+        best_unauthorized_distance = min(
+            unauthorized_distances
+        )
+
+        # No accessible documents at all
+        if not authorized_results:
+
+            access_denied = True
+
+        else:
+
+            best_authorized_distance = min(
+                result["distance"]
+                for result in authorized_results
+            )
+
+            # Smaller distance = more relevant.
+            #
+            # Use a relevance margin so that a tiny similarity
+            # difference does not incorrectly deny access when
+            # an authorized document is also relevant.
+            RELEVANCE_MARGIN = 0.15
+
+            if (
+                best_unauthorized_distance
+                + RELEVANCE_MARGIN
+                < best_authorized_distance
+            ):
+                access_denied = True
 
     return {
         "authorized_results": authorized_results,
